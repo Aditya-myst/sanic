@@ -1075,15 +1075,17 @@ class Request(Generic[sanic_type, ctx_type]):
         Returns:
             str: The generated URL.
         """
-        # Full URL SERVER_NAME can only be handled in app.url_for
-        try:
-            sp = self.app.config.get("SERVER_NAME", "").split("://", 1)
-            if len(sp) == 2:
-                return self.app.url_for(view_name, _external=True, **kwargs)
-        except AttributeError:
-            pass
+        # Explicit caller arguments always win.
+        if "_server" in kwargs or "_host" in kwargs:
+            kwargs.setdefault("_external", True)
+            return self.app.url_for(view_name, **kwargs)
 
-        scheme = self.scheme
+        # A configured public base URL (with optional path) is handled
+        # entirely by ``app.url_for``.
+        if "://" in self.app.external_base_url[:8]:
+            return self.app.url_for(view_name, _external=True, **kwargs)
+
+        scheme = kwargs.pop("_scheme", "") or self.scheme
         host = self.server_name
         port = self.server_port
 
@@ -1094,9 +1096,36 @@ class Request(Generic[sanic_type, ctx_type]):
         else:
             netloc = f"{host}:{port}"
 
+        route = self.app.router.find_route_by_view_name(view_name)
+        if route and route.extra.websocket:
+            scheme = scheme.replace("http", "ws")
+
+        kwargs.setdefault("_base_path", self.forwarded_base_path)
         return self.app.url_for(
             view_name, _external=True, _scheme=scheme, _server=netloc, **kwargs
         )
+
+    @property
+    def forwarded_base_path(self) -> str:
+        """Path prefix added by a trusted reverse proxy.
+
+        Derived from the proxied ``path`` (``X-Forwarded-Path`` or RFC 7239
+        ``Forwarded: path=``) by removing the locally routed ``request.path``
+        suffix. Empty when no trusted proxy path is present or when it does
+        not end with the local path.
+        """
+        proxied = str(self.forwarded.get("path") or "")
+        if not proxied:
+            return ""
+        norm = "/" + "/".join(p for p in proxied.split("/") if p)
+        local = "/" + "/".join(p for p in self.path.split("/") if p)
+        if local == "/":
+            return norm if norm != "/" else ""
+        if norm == local:
+            return ""
+        if norm.endswith(local):
+            return norm[: -len(local)]
+        return ""
 
     @property
     def scope(self) -> ASGIScope:

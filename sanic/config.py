@@ -34,6 +34,7 @@ DEFAULT_CONFIG = {
     "AUTO_EXTEND": True,
     "AUTO_RELOAD": False,
     "EVENT_AUTOREGISTER": False,
+    "EXTERNAL_BASE_URL": None,
     "DEPRECATION_FILTER": "once",
     "FORWARDED_FOR_HEADER": "X-Forwarded-For",
     "FORWARDED_SECRET": None,  # nosec B105
@@ -139,6 +140,7 @@ class Config(dict, metaclass=DescriptorMeta):
     AUTO_EXTEND: bool
     AUTO_RELOAD: bool
     EVENT_AUTOREGISTER: bool
+    EXTERNAL_BASE_URL: str | None
     DEPRECATION_FILTER: FilterWarningType
     FORWARDED_FOR_HEADER: str
     FORWARDED_SECRET: str | None

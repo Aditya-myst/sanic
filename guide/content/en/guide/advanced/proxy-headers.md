@@ -57,6 +57,19 @@ If a client IP is found by one of these methods, Sanic uses the following header
 - x-forwarded-path
 - x-scheme
 
+## Building external URLs
+
+When a trusted proxy is configured (see above) and it advertises a path prefix through `X-Forwarded-Path` or the RFC 7239 `path=` parameter, `request.url_for()` includes that prefix in generated URLs, together with the forwarded scheme, host and port. The prefix is exposed as `request.forwarded_base_path`.
+
+For code that has no request in scope (for example CLI tools or extensions generating OpenAPI documents), set `EXTERNAL_BASE_URL` so that `app.url_for(..., _external=True)` can build correct public URLs:
+
+```python
+app.config.EXTERNAL_BASE_URL = "https://example.com/api"
+app.url_for("hello", _external=True)  # https://example.com/api/hello
+```
+
+Explicit `_server`, `_host` and `_scheme` arguments always take precedence. If no base URL can be determined, `app.url_for(..., _external=True)` raises `URLBuildError` instead of returning a malformed URL.
+
 ## Examples
 
 In the following examples, all requests will assume that the endpoint looks like this:

@@ -58,7 +58,7 @@ from sanic.exceptions import (
     URLBuildError,
 )
 from sanic.handlers import ErrorHandler
-from sanic.helpers import Default, _default
+from sanic.helpers import Default, _default, join_url_path, split_base_url
 from sanic.http import Stage
 from sanic.log import LOGGING_CONFIG_DEFAULTS, error_logger, logger
 from sanic.logging.deprecation import deprecation
@@ -939,6 +939,22 @@ class Sanic(
             blueprint.strict_slashes = self.strict_slashes
         blueprint.register(self, options)
 
+    @property
+    def external_base_url(self) -> str:
+        """Public base URL used for external URL generation.
+
+        Resolution order:
+        1. ``config.EXTERNAL_BASE_URL``
+        2. ``config.SERVER_NAME`` (which may be a full URL with a path)
+
+        Returns an empty string when neither is configured.
+        """
+        return (
+            self.config.get("EXTERNAL_BASE_URL")
+            or self.config.get("SERVER_NAME", "")
+            or ""
+        )
+
     def url_for(self, view_name: str, **kwargs):
         """Build a URL based on a view name and the values provided.
 
@@ -955,6 +971,7 @@ class Sanic(
         - `_host`
         - `_server`
         - `_scheme`
+        - `_base_path`
 
         Args:
             view_name (str): String referencing the view name.
@@ -1061,21 +1078,29 @@ class Sanic(
             raise ValueError("When specifying _scheme, _external must be True")
 
         netloc = kwargs.pop("_server", None)
+        base_path = kwargs.pop("_base_path", "") or ""
         if netloc is None and external:
-            netloc = host or self.config.get("SERVER_NAME", "")
+            netloc = host or self.external_base_url
 
         if external:
+            if not netloc:
+                raise URLBuildError(
+                    "Cannot build an external URL: pass `_server` or "
+                    "`_host`, or set `config.EXTERNAL_BASE_URL` "
+                    "(or a full-URL `config.SERVER_NAME`)"
+                )
+            base_scheme, base_netloc, netloc_path = split_base_url(netloc)
+            netloc = base_netloc
+            if not base_path:
+                base_path = netloc_path
             if not scheme:
-                if ":" in netloc[:8]:
-                    scheme = netloc[:8].split(":", 1)[0]
-                else:
-                    scheme = "http"
+                scheme = base_scheme or "http"
                 # Replace http/https with ws/wss for WebSocket handlers
                 if route.extra.websocket:
                     scheme = scheme.replace("http", "ws")
 
-            if "://" in netloc[:8]:
-                netloc = netloc.split("://", 1)[-1]
+        if base_path:
+            out = join_url_path(base_path, out)
 
         # find all the parameters we will need to build in the URL
         # matched_params = re.findall(self.router.parameter_pattern, uri)

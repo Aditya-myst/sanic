@@ -266,6 +266,7 @@ If a value cannot be cast, it will default to a `str`.
 | AUTO_EXTEND               | True             | Control whether [Sanic Extensions](../../plugins/sanic-ext/getting-started.md) will load if it is in the existing virtual environment |
 | AUTO_RELOAD               | True             | Control whether the application will automatically reload when a file changes                                                         |
 | EVENT_AUTOREGISTER        | True             | When `True` using the `app.event()` method on a non-existing signal will automatically create it and not raise an exception           |
+| EXTERNAL_BASE_URL         | None             | Public base URL (scheme, host, optional port and path prefix) used by `url_for(..., _external=True)` when no request context or `_server` is available. Takes precedence over `SERVER_NAME`. |
 | FALLBACK_ERROR_FORMAT     | html             | Format of error response if an exception is not caught and handled                                                                    |
 | FORWARDED_FOR_HEADER      | X-Forwarded-For  | The name of "X-Forwarded-For" HTTP header that contains client and proxy ip                                                           |
 | FORWARDED_SECRET          | None             | Used to securely identify a specific proxy server (see below)                                                                         |

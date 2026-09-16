@@ -171,3 +171,29 @@ class Default:
 
 
 _default = Default()
+
+
+def split_base_url(value: str) -> tuple[str, str, str]:
+    """Split a base URL or bare netloc into ``(scheme, netloc, path)``.
+
+    ``"https://example.com:8443/api/"`` -> ``("https", "example.com:8443", "/api")``
+    ``"example.com"`` -> ``("", "example.com", "")``
+    """
+    scheme = ""
+    rest = value
+    if "://" in value[:8]:
+        scheme, rest = value.split("://", 1)
+    netloc, _, path = rest.partition("/")
+    path = "/" + path.strip("/") if path.strip("/") else ""
+    return scheme, netloc, path
+
+
+def join_url_path(prefix: str, path: str) -> str:
+    """Join a base path prefix with a route path without duplicate slashes."""
+    prefix = "/".join(part for part in prefix.split("/") if part)
+    path = path.lstrip("/")
+    if not prefix:
+        return "/" + path
+    if not path:
+        return "/" + prefix
+    return f"/{prefix}/{path}"
