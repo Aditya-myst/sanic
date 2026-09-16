@@ -358,3 +358,23 @@ def test_explicit_host_overrides_forwarded_in_request(app):
         },
     )
     assert response.text == "http://other.org/hi"
+
+
+def test_external_base_url_precedes_forwarded_headers(app):
+    app.config.PROXIES_COUNT = 1
+    app.config.EXTERNAL_BASE_URL = "https://public.example/base"
+
+    @app.get("/hi", name="hi")
+    async def hi(request):
+        return text(request.url_for("hi"))
+
+    _, response = app.test_client.get(
+        "/hi",
+        headers={
+            **XFF,
+            "X-Forwarded-Host": "proxy.example",
+            "X-Forwarded-Proto": "http",
+            "X-Forwarded-Path": "/api/hi",
+        },
+    )
+    assert response.text == "https://public.example/base/hi"
