@@ -302,3 +302,59 @@ def test_internal_url_unaffected_by_external_base_url(app):
 
     app.config.EXTERNAL_BASE_URL = "https://example.com/api"
     assert app.url_for("hi") == "/hi"
+
+
+def test_forwarded_default_port_80_is_omitted_for_http(proxied_app):
+    _, response = proxied_app.test_client.get(
+        "/hi",
+        headers={
+            **XFF,
+            "X-Forwarded-Host": "example.com",
+            "X-Forwarded-Proto": "http",
+            "X-Forwarded-Port": "80",
+            "X-Forwarded-Path": "/api/hi",
+        },
+    )
+    assert response.text == "http://example.com/api/hi"
+
+
+def test_forwarded_websocket_uses_ws_under_http(proxied_app):
+    _, response = proxied_app.test_client.get(
+        "/wsurl",
+        headers={
+            **XFF,
+            "X-Forwarded-Host": "example.com",
+            "X-Forwarded-Proto": "http",
+            "X-Forwarded-Path": "/api/wsurl",
+        },
+    )
+    assert response.text == "ws://example.com/api/ws"
+
+
+def test_explicit_host_overrides_external_base_url(app):
+    @app.get("/hi", name="hi", host="other.org")
+    async def hi(request):
+        pass
+
+    app.config.EXTERNAL_BASE_URL = "https://example.com/api"
+    assert app.url_for("hi", _host="other.org") == "http://other.org/hi"
+
+
+def test_explicit_host_overrides_forwarded_in_request(app):
+    app.config.PROXIES_COUNT = 1
+
+    @app.get("/hi", name="hi", host="other.org")
+    async def hi(request):
+        return text(request.url_for("hi", _host="other.org"))
+
+    _, response = app.test_client.get(
+        "/hi",
+        headers={
+            **XFF,
+            "Host": "other.org",
+            "X-Forwarded-Host": "example.com",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Path": "/api/hi",
+        },
+    )
+    assert response.text == "http://other.org/hi"
